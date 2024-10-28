@@ -31,7 +31,7 @@ $db = mysqli_connect('localhost', 'root', '1234', 'mysitedb') or die('Fail');
                 echo $row['año_publicacion'];
                 
                 echo '<br>';
-                echo '<a href=/detail.php?id='.$row['id'].'ºº>ver detalles</a>';
+                echo '<a href=/detail.php?id='.$row['id'].'>ver detalles</a>';
                 
                 echo '<br>';
                 echo '<br>';

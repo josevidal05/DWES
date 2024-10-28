@@ -1,53 +1,64 @@
 <?php
-// Conexión a la base de datos
-$db = mysqli_connect('localhost', 'root', '1234', 'mysitedb') or die('Fail');
+    $db = mysqli_connect('localhost', 'root', '1234', 'mysitedb') or die('Fail');
+
+
+    if (!isset($_GET['id'])) {
+        die('No se ha especificado un libro');
+    }
+
+
+    $libro_id = $_GET['id'];
+    $query = 'SELECT * FROM tLibros WHERE id=' . $libro_id;
+    $result = mysqli_query($db, $query) or die('Query error');
+    $libro = mysqli_fetch_array($result);
+
+    if(!$libro){
+        die('El libro no existe');
+    }
 ?>
+
 <html>
-<body>
-<?php
-// Verificar si se ha especificado el ID del juego
-if (!isset($_GET['id'])) {
-    die('No se ha especificado un libro');
-}
-$libro_id = $_GET['id'];
+    <head>
+        <style>
+            img{
+                width: 100px;
+                height: 100px;
+            }
+        </style>
+    </head>
+    
+    <body>
+        <h1>Detalles del libro</h1>
+        <div class="detalle-libro">
+            <h2><?php echo $libro['nombre']; ?></h2> 
+            <img src=" <?php echo $libro['url_imagen']; ?>"> 
 
-// Consulta para obtener los detalles del juego
-$query = 'SELECT * FROM tLibros WHERE id=' . $libro_id;
-$result = mysqli_query($db, $query) or die('Query error');
-$only_row = mysqli_fetch_array($result);
+        </div>
 
-// Mostrar los detalles del juego
-echo '<h1>' . htmlspecialchars($only_row['nombre']) . '</h1>';
-echo '<img src="' . htmlspecialchars($only_row['url_imagen']) . '" alt="Imagen del juego" style="width:200px;">';
-echo '<h2>Autor: ' . htmlspecialchars($only_row['autor']) . '</h2>';
-echo '<h3>Año de publicación: ' . htmlspecialchars($only_row['año_publicacion']) . '</h3>';
-?>
-<h3>Comentarios:</h3>
-<ul>
-<?php
-// Consulta para obtener los comentarios asociados al juego
-$query2 = 'SELECT c.comentario, u.nombre, u.apellidos 
-           FROM tComentarios c 
-           JOIN tUsuarios u ON c.usuario_id = u.id 
-           WHERE c.libro_id=' . $libro_id;
-$result2 = mysqli_query($db, $query2) or die('Query error');
+        <h3>Comentarios:</h3>
+        <ul class="comentarios">
 
-// Mostrar los comentarios
-while ($row = mysqli_fetch_array($result2)) {
-    echo '<li><strong>' . htmlspecialchars($row['nombre']) . ' ' . htmlspecialchars($row['apellidos']) . ':</strong> ' . htmlspecialchars($row['comentario']) . '</li>';
-}
+            <?php
+                $query2 = 'SELECT * FROM tComentarios WHERE libro_id=' . $libro_id;
+                $result2 = mysqli_query($db, $query2) or die('Error en la consulta de comentarios');
 
+                while ($comentario = mysqli_fetch_array($result2)) {
+                echo '<li>' . $comentario['comentario'] . '</li>';
+                echo '<p>Fecha del comentario: ';
+                echo $comentario['fecha'].'</p>';
 
-// Cerrar la conexión a la base de datos
-mysqli_close($db);
-?>
-</ul>
-<p>Deja un nuevo comentario:</p>
-<form action="/comment.php" method="post">
-    <textarea rows="4" cols="50" name="new_comment"></textarea><br>
-    <input type="hidden" name="cancion_id" value="<?php echo $libro_id; ?>">
-    <input type="submit" value="Comentar">
-</form>
-</body>
+            }
+            ?>
+        </ul>
+        <!--Creamos un forms  donde permitimos añadir comentarios, al hacer submit nos redirigirá a comment.php-->
+        <p>Deja un nuevo comentario</p>
+        <form action="/comment.php" method="post">
+            <textarea rows="4" cols="50" name="new_comment"></textarea><br>
+            <input type="hidden" name="id" value="<?php echo $libro_id; ?>">
+            <input type="submit"  value="Comentar">
+        </form>
+        <?php 
+            mysqli_close($db);
+        ?>
+    </body>
 </html>
-
