@@ -60,7 +60,7 @@ DROP TABLE IF EXISTS `tLibros`;
 CREATE TABLE `tLibros` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(50) NOT NULL,
-  `url_imagen` varchar(200) DEFAULT NULL,
+  `url_imagen` varchar(1000) DEFAULT NULL,
   `autor` varchar(100) DEFAULT NULL,
   `año_publicacion` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
@@ -74,11 +74,11 @@ CREATE TABLE `tLibros` (
 LOCK TABLES `tLibros` WRITE;
 /*!40000 ALTER TABLE `tLibros` DISABLE KEYS */;
 INSERT INTO `tLibros` VALUES
-(1,'El Quijote','https://example.com/quijote.jpg','Miguel de Cervantes',1605),
-(2,'Cien años de soledad','https://example.com/cien_anos.jpg','Gabriel García Márquez',1967),
-(3,'1984','https://example.com/1984.jpg','George Orwell',1949),
-(4,'Don Juan Tenorio','https://example.com/don_juan.jpg','José Zorrilla',1844),
-(5,'La casa de los espíritus','https://example.com/casa_espiritus.jpg','Isabel Allende',1982);
+(1,'El Quijote','https://www.marcialpons.es/media/img/portadas/2023/4/18/9788408270881jfif','Miguel de Cervantes',1605),
+(2,'Cien años de soledad','https://www.mejoreslibros.top/wp-content/uploads/2020/09/Cien-anos-de-Soledad-50-Aniversario-761x1024.jpg','Gabriel García Márquez',1967),
+(3,'1984','https://www.bookerworm.com/images/1984.jpg', 'George Orwell', 1949),
+(4,'Don Juan Tenorio','https://www.anayainfantilyjuvenil.com/images/libros/9788466794978-don-juan-tenorio-clasicos-a-medida.jpg','José Zorrilla',1844),
+(5,'La casa de los espíritus','https://cdn.agapea.com/Debolsillo/La-casa-de-los-espiritus-i1n19456519.jpg','Isabel Allende',1982);
 /*!40000 ALTER TABLE `tLibros` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -125,3 +125,4 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2024-10-23 13:00:09
+show tables;
