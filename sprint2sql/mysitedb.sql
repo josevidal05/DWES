@@ -91,10 +91,10 @@ DROP TABLE IF EXISTS `tUsuarios`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `tUsuarios` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `nombre` varchar(50) NOT NULL,
-  `apellidos` varchar(100) NOT NULL,
-  `email` varchar(200) NOT NULL,
-  `contraseña` varchar(200) NOT NULL,
+  `nombre` varchar(50) NULL,
+  `apellidos` varchar(100)  NULL,
+  `email` varchar(200) NULL,
+  `contraseña` varchar(200) NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
