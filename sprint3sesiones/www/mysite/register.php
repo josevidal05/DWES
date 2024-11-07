@@ -48,7 +48,7 @@
     
     if (mysqli_query($db, $query)) {
         // Redirigir a la página principal
-        echo "El correo electrónico se ha registrado con exito";
+        header("Location: login.html");
         exit;
     } else {
         echo "Error al registrar el usuario: " . mysqli_error($db);
