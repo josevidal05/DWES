@@ -38,7 +38,10 @@ $db = mysqli_connect('localhost', 'root', '1234', 'mysitedb') or die('Fail');
 
 
             }
+            
             mysqli_close($db);
         ?>
+        <a href="/logout.php">Logout</a>
+
     </body>
 </html>

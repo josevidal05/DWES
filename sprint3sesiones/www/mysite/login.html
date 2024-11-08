@@ -1,5 +1,21 @@
 <html>
-    <head><meta charset="UTF-8"></head>
+    <head>
+        <meta charset="UTF-8">
+        <script>
+            function validarFormulario() {
+                // Obtener los campos del formulario
+                const email = document.getElementById('f_email').value;
+                const password = document.getElementById('f_password').value;
+    
+                // Verificar si alguno de los campos está vacío
+                if (email === "" || password === "") {
+                    alert("Por favor, completa todos los campos.");
+                    return false; // Evita que el formulario se envíe
+                }
+                return true; // Permite que el formulario se envíe si los campos están completos
+            }
+        </script>
+    </head>
     <body>
     <h1>Inicia sesion</h1>
         <form action="login.php" method="post">
