@@ -32,7 +32,7 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
-AUTH_USER_MODEL = 'webserviceapp.Usuario'
+AUTH_USER_MODEL = 'webserviceapp.User'
 
 INSTALLED_APPS = [
     'webserviceapp.apps.webserviceappConfig'
