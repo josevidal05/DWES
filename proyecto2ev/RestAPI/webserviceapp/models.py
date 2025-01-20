@@ -22,7 +22,7 @@ class User(models.Model):
         return self.nombre
 
 
-class Evento(models.Model):
+class Event(models.Model):
     titulo = models.CharField(max_length=200)
     descripcion = models.TextField()
     fecha_hora = models.DateTimeField()
@@ -43,7 +43,7 @@ class Reserva(models.Model):
     ]
 
     usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reservas')
-    evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name='reservas')
+    evento = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='reservas')
     cantidad_entradas = models.IntegerField()
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -51,11 +51,13 @@ class Reserva(models.Model):
     def _str_(self):
         return f"Reserva de {self.usuario.nombre} para {self.evento.titulo}"
 
+
 class Comentario(models.Model):
     texto = models.TextField()
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comentarios')
-    evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name='comentarios')
+    evento = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='comentarios')
 
     def _str_(self):
         return f"Comentario de {self.usuario.nombre} en {self.evento.titulo}"
+

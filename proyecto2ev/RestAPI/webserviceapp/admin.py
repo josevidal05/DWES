@@ -3,25 +3,34 @@ from django.contrib import admin
 # Register your models here.
 
 from django.contrib import admin
-from .models import User, Evento, Reserva, Comentario
+from .models import User, Event, Reserva, Comentario
 
+@admin.register(Event)
+class EventAdmin(admin.ModelAdmin):
+    list_display = ('titulo', 'fecha_hora', 'capacidad_maxima', 'organizador', 'created_at')  # Columnas visibles
+    list_filter = ('fecha_hora', 'organizador')  # Filtros laterales
+    search_fields = ('titulo', 'descripcion', 'organizador__nombre')  # Campos para la barra de búsqueda
+    ordering = ('-fecha_hora',)  # Ordenar por fecha (más recientes primero)
+
+
+# Registro de otros modelos con configuraciones básicas
 @admin.register(User)
-class UsuarioAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'email', 'tipo', 'biografia')
-    list_filter = ('tipo',)
+class UserAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'correo_electronico', 'rol', 'created_at')
+    list_filter = ('rol', 'created_at')
+    search_fields = ('nombre', 'correo_electronico')
 
-@admin.register(Evento)
-class EventoAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'fecha', 'limiteMaximo', 'organizador')
-    search_fields = ('titulo', 'descripcion')
-    list_filter = ('fecha', 'organizador')
 
 @admin.register(Reserva)
 class ReservaAdmin(admin.ModelAdmin):
-    list_display = ('usuario', 'evento', 'entradas')
-    list_filter = ('estado',)
+    list_display = ('usuario', 'evento', 'cantidad_entradas', 'estado', 'created_at')
+    list_filter = ('estado', 'evento')
+    search_fields = ('usuario_nombre', 'evento_titulo')
+
 
 @admin.register(Comentario)
 class ComentarioAdmin(admin.ModelAdmin):
-    list_display = ('usuario', 'infoEvento', 'fecha')
-    search_fields = ('texto',)
+    list_display = ('usuario', 'evento', 'fecha_creacion', 'texto')
+    list_filter = ('fecha_creacion',)
+    search_fields = ('usuario_nombre', 'evento_titulo', 'texto')
+
