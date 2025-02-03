@@ -3,13 +3,14 @@ from django.shortcuts import render
 from django.http import JsonResponse
 import json
 from django.views.decorators.csrf import csrf_exempt
+from django.core.exceptions import ObjectDoesNotExist
 
 # Create your views here.
 from models import User, Event, Reserva, Comentario
 import hashlib
 
 def listar_eventos(request):
-    evento = Reserva.objects.all()
+    evento = Event.objects.all()
     data = [{"titulo": e.titulo, "descripcion": e.descripcion, "fecha": e.fecha_hora, } for e in evento]
     return JsonResponse(data, safe=False)
 
@@ -18,7 +19,10 @@ def crear_evento(request):
     if request.method == "POST":
             data = json.loads(request.body)
             if data["rol"] == "Organizador":
-                # Comporbar si el evento existe
+
+                # Comprobar si el evento existe
+                if Event.objects.filter(titulo=data["titulo"]).exists():
+                    return JsonResponse({"error": "El evento ya existe"})
 
                 evento = Event.objects.create(
                     titulo=data["titulo"],
@@ -38,6 +42,7 @@ def actualizar_evento(request, titulo):
     if request.method in ["PUT", "PATCH"]:
         data = json.loads(request.body)
         evento = Event.objects.get(titulo=titulo)
+
         evento.descripcion = data.get("descripcion", evento.descripcion)
         evento.fecha_hora = data.get("fecha_hora", evento.fecha_hora)
         evento.capacidad_maxima = data.get("capacidad_maxima", evento.capacidad_maxima)
@@ -129,6 +134,13 @@ def eliminar_reservas(request, id):
 # /****** COMENTARIOS ******/
 
 def listar_comentarios (request):
+
+    id = request.GET.get("id")
+
+    # Verificamos que el ID del usuario esté presente
+    if not id:
+        return JsonResponse({"error": "Se requiere el parámetro 'id' del usuario"})
+
     usuario = User.objects.get(id=id)
     comentario = Comentario.objects.select_related('evento').filter(usuario=usuario)
 
@@ -142,19 +154,35 @@ def listar_comentarios (request):
     return JsonResponse(data, safe=False)
 
 
-
+@csrf_exempt
 def crear_comentario (request, id):
     if request.method == "POST":
             data = json.loads(request.body)
-            Usuario = User.object.get(id=id)
+
+            # Verificamos que los datos estén presentes en el cuerpo de la solicitud
+            data = json.loads(request.body)
+            if "texto" not in data or "fecha_creacion" not in data or "evento" not in data:
+                return JsonResponse({"error": "Faltan datos requeridos (texto, fecha_creacion, evento)"})
+
+            # Comprobamos que el usuario existe
+            try:
+                Usuario = User.objects.get(id=id)
+            except User.DoesNotExist:
+                return JsonResponse({"error": "Usuario no encontrado"})
+
+            # Comprobamos que el evento existe
+            try:
+                Evento = Event.objects.get(id=data["evento"])
+            except Event.DoesNotExist:
+                return JsonResponse({"error": "Evento no encontrado"})
 
             comentario = Comentario.objects.create(
                 texto=data["texto"],
                 fecha_creacion=data["fecha_creacion"],
                 usuario=Usuario,
-                evento=data["evento"],
+                evento=Evento,
             )
-            return JsonResponse({"id": Usuario.id, "mensaje":
+            return JsonResponse({"id": comentario.id, "mensaje":
                 "Comentario creado exitosamente"})
 
 
@@ -170,11 +198,18 @@ def check_contraseña(stored_hash, input_password):
 def registrar_usuario (request):
     data = json.loads(request.body)
     username = data.get("usename")
+    password = data.get("password")
 
-    #verificar si existe el usuario
+    if not username or not password:
+        return JsonResponse({"error": "Faltan datos requeridos (username, password)"}, status=400)
+
+        # Verificar si el usuario ya existe
+    if User.objects.filter(username=username).exists():
+        return JsonResponse({"error": "El nombre de usuario ya está registrado"}, status=400)
 
     #hashear la contraseña
-    hashed_password = hash_contraseña (data["password"])
+    hashed_password = hash_contraseña("password")
+
     User.objects.create(
         username=username,
         password = hashed_password
@@ -190,12 +225,16 @@ def login_usuario(request):
         username = data.get("username")
         password = data.get("password")
 
+        if not username or not password:
+            return JsonResponse({"error": "Faltan datos requeridos (username, password)"}, status=400)
+
         try:
             user = User.objects.get(username=username)
             if user.password == hash_contraseña(password):
                 return JsonResponse({"mensaje": "Login exitoso", "usuario": username})
             else:
                 return JsonResponse({"error": "Contraseña incorrecta"})
+
         except User.DoesNotExist:
             return JsonResponse({"error": "Usuario no encontrado"})
 
