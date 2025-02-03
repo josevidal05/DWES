@@ -10,8 +10,14 @@ from models import User, Event, Reserva, Comentario
 import hashlib
 
 def listar_eventos(request):
-    evento = Event.objects.all()
-    data = [{"titulo": e.titulo, "descripcion": e.descripcion, "fecha": e.fecha_hora, } for e in evento]
+    evento = Event.objects.select_related("organizador").all()
+
+    data = [{
+        "titulo": e.titulo,
+        "descripcion": e.descripcion,
+        "fecha": e.fecha_hora,
+        "organizador": e.organizador.username if e.organizador else None
+    } for e in evento]
     return JsonResponse(data, safe=False)
 
 @csrf_exempt
@@ -41,14 +47,13 @@ def crear_evento(request):
 def actualizar_evento(request, titulo):
     if request.method in ["PUT", "PATCH"]:
         data = json.loads(request.body)
-        evento = Event.objects.get(titulo=titulo)
+        evento = Event.objects.select_related("organizador").get(titulo=titulo)
 
         evento.descripcion = data.get("descripcion", evento.descripcion)
         evento.fecha_hora = data.get("fecha_hora", evento.fecha_hora)
         evento.capacidad_maxima = data.get("capacidad_maxima", evento.capacidad_maxima)
         evento.imagen_url = data.get("imagen_url", evento.imagen_url)
-        evento.organizador = data.get("organizador", evento.organizador)
-        evento.created_at = data.get("created_at", evento.created_at)
+        evento.organizador = User.objects.get(username=data["organizador"])
         evento.save()
         return JsonResponse({"mensaje": "Producto actualizado"})
 
@@ -65,7 +70,7 @@ def eliminar_evento(request, titulo):
 
 def listar_reservas(request):
     usuario = User.objects.get(id=id)
-    reservas = Reserva.objects.select_related('evento').filter(usuario=usuario)
+    reservas = Reserva.objects.select_related('evento', 'usuario').filter(usuario=usuario)
 
     data = [{
             "id": r.id,
