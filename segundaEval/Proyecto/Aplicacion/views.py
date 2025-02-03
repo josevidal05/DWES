@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 # Create your views here.
 from models import User, Event, Reserva, Comentario
-
+import hashlib
 
 def listar_eventos(request):
     evento = Reserva.objects.all()
@@ -15,9 +15,6 @@ def listar_eventos(request):
 
 @csrf_exempt
 def crear_evento(request):
-
-
-
     if request.method == "POST":
             data = json.loads(request.body)
             if data["rol"] == "Organizador":
@@ -127,3 +124,79 @@ def eliminar_reservas(request, id):
         reserva = Reserva.objects.get(id=id)
         reserva.delete()
         return JsonResponse({"mensaje": "Reserva eliminada"})
+
+
+# /****** COMENTARIOS ******/
+
+def listar_comentarios (request):
+    usuario = User.objects.get(id=id)
+    comentario = Comentario.objects.select_related('evento').filter(usuario=usuario)
+
+    data = [{
+        "id": c.id,
+        "usuario": c.usuario.username,
+        "evento": c.evento.titulo,
+        "texto": c.texto,
+        "fecha_creacion": c.fecha_creacion
+    } for c in comentario]
+    return JsonResponse(data, safe=False)
+
+
+
+def crear_comentario (request, id):
+    if request.method == "POST":
+            data = json.loads(request.body)
+            Usuario = User.object.get(id=id)
+
+            comentario = Comentario.objects.create(
+                texto=data["texto"],
+                fecha_creacion=data["fecha_creacion"],
+                usuario=Usuario,
+                evento=data["evento"],
+            )
+            return JsonResponse({"id": Usuario.id, "mensaje":
+                "Comentario creado exitosamente"})
+
+
+#/****** USUARIOS **********/
+def hash_contraseña(password):
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+def check_contraseña(stored_hash, input_password):
+    return stored_hash == hash_contraseña(input_password)
+
+
+@csrf_exempt
+def registrar_usuario (request):
+    data = json.loads(request.body)
+    username = data.get("usename")
+
+    #verificar si existe el usuario
+
+    #hashear la contraseña
+    hashed_password = hash_contraseña (data["password"])
+    User.objects.create(
+        username=username,
+        password = hashed_password
+
+    )
+    return JsonResponse({"mensaje": "Usuario registrado exitosamente"})
+
+
+@csrf_exempt
+def login_usuario(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        username = data.get("username")
+        password = data.get("password")
+
+        try:
+            user = User.objects.get(username=username)
+            if user.password == hash_contraseña(password):
+                return JsonResponse({"mensaje": "Login exitoso", "usuario": username})
+            else:
+                return JsonResponse({"error": "Contraseña incorrecta"})
+        except User.DoesNotExist:
+            return JsonResponse({"error": "Usuario no encontrado"})
+
+    return JsonResponse({"error": "Método no permitido"})
