@@ -57,4 +57,3 @@ class Comentario(models.Model):
 
     def _str_(self):
         return f"Comentario de {self.usuario.username} en {self.evento.titulo}"
-
