@@ -32,7 +32,7 @@ ALLOWED_HOSTS = []
 AUTH_USER_MODEL = 'Aplicacion.User'
 
 INSTALLED_APPS = [
-'Aplicacion.apps.AplicacionConfig',
+    'Aplicacion.apps.AplicacionConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
