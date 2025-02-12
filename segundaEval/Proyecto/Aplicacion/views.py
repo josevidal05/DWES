@@ -1,55 +1,135 @@
 from django.contrib.auth.hashers import make_password, check_password
-from django.http import JsonResponse
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.core.paginator import Paginator
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework.response import Response
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ObjectDoesNotExist
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 # Create your views here.
 from .models import *
 import hashlib
 
-def listar_eventos(request):
-    evento = Event.objects.select_related("organizador").all()
+from rest_framework.permissions import BasePermission
 
-    data = [{
-        "titulo": e.titulo,
-        "descripcion": e.descripcion,
-        "fecha": e.fecha_hora,
-        "capacidad": e.capacidad_maxima,
-        "organizador": e.organizador.username if e.organizador else None
-    } for e in evento]
-    return JsonResponse(data, safe=False)
+#**************************************************************************
 
-@csrf_exempt
-def crear_evento(request):
-    if request.method == "POST":
-            data = json.loads(request.body)
-            if data["rol"] == "Organizador":
+# ROLES
 
-                # Comprobar si el evento existe
-                if Event.objects.filter(titulo=data["titulo"]).exists():
-                    return JsonResponse({"error": "El evento ya existe"})
+class EsOrganizador(BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.rol=="organizador"
 
-                evento = Event.objects.create(
-                    titulo=data["titulo"],
-                    descripcion=data["descripcion"],
-                    fecha_hora=data["fecha_hora"],
-                    capacidad_maxima=data["capacidad_maxima"],
-                    imagen_url=data["imagen_url"],
+class EsParticipante(BasePermission):
+        def has_permission(self, request, view):
+            return request.user and request.user.rol == "participante"
 
-                    organizador=User.objects.get(username= data["organizador"]),
-                )
-                return JsonResponse({"titulo": evento.titulo, "mensaje":
-                    "Producto creado exitosamente"})
-            return JsonResponse ({"error": "El evento ya existe" })
+#****************************************************************************
+
+class listar_eventos(APIView):
+    permission_classes = [EsParticipante]
+
+    @swagger_auto_schema(
+        operation_description="Lista eventos filtrados por título o fecha.",
+        manual_parameters=[
+            openapi.Parameter('titulo', openapi.IN_QUERY, description="Filtrar por título", type=openapi.TYPE_STRING),
+            openapi.Parameter('fecha', openapi.IN_QUERY, description="Filtrar por fecha (YYYY-MM-DD)",
+                              type=openapi.TYPE_STRING),
+            openapi.Parameter('pagina', openapi.IN_QUERY, description="Número de página", type=openapi.TYPE_INTEGER),
+        ],
+        responses={200: openapi.Response(description="Lista de eventos")}
+    )
+
+    def get(self, request):
+        titulo = request.GET.get("titulo", "")  # Filtrar por nombre
+        orden = request.GET.get("orden", "titulo")  # Ordenar por el campo especificado
+        limite = int(request.GET.get("limite", 10))  # Resultados por página
+        pagina = int(request.GET.get("pagina", 1))  # Página actual
+
+        # Filtrar y ordenar productos
+        evento = Event.objects.filter(titulo__icontains=titulo).order_by(orden)
+        # Paginación
+        paginator = Paginator(evento, limite)  # Dividir productos en páginas de tamaño `limite`
+
+        try:
+            productos_pagina = paginator.page(pagina)  # Obtener los productos de la página actual
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)  # Manejar errores de paginación
+
+        # Crear respuesta con datos paginados
+        data = {
+            "count": paginator.count,  # Número total de productos
+            "total_pages": paginator.num_pages,  # Número total de páginas
+            "current_page": pagina,  # Página actual
+            "next": pagina + 1 if productos_pagina.has_next() else None,  # Página siguiente
+            "previous": pagina - 1 if productos_pagina.has_previous() else None,  # Página anterior
+            "results": [
+                {
+                    "id": p.id,
+                    "titulo": p.titulo,
+                    "descripción": p.descripcion,
+                    "fecha_hora":p.fecha_hora,
+                    "capacidad_maxima": p.capacidad_maxima,
+
+                } for p in productos_pagina
+            ]  # Resultados actuales
+        }
+
+        return Response(data)
 
 
-@csrf_exempt
-def actualizar_evento(request, titulo):
-    if request.method in ["PUT", "PATCH"]:
-        data = json.loads(request.body)
+class crear_evento(APIView):
+    permission_classes = [EsOrganizador]
+
+    @swagger_auto_schema(
+        operation_description="Crea un nuevo evento.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'titulo': openapi.Schema(type=openapi.TYPE_STRING, description='Título del evento'),
+                'descripcion': openapi.Schema(type=openapi.TYPE_STRING, description='Descripción del evento'),
+                'fecha_hora': openapi.Schema(type=openapi.TYPE_STRING, format="date-time",
+                                             description='Fecha y hora del evento'),
+                'capacidad': openapi.Schema(type=openapi.TYPE_INTEGER, description='Capacidad máxima de asistentes'),
+            },
+            required=['titulo', 'descripcion', 'fecha_hora', 'capacidad']
+        ),
+        responses={201: openapi.Response(description="Evento creado"),
+                   403: openapi.Response(description="No tienes permisos para crear eventos.")}
+    )
+    def post(self, request):
+
+        data = request.data
+
+        # Comprobar si el evento existe
+        if Event.objects.filter(titulo=data["titulo"]).exists():
+            return Response({"error": "El evento ya existe"})
+
+        evento = Event.objects.create(
+            titulo=data["titulo"],
+            descripcion=data["descripcion"],
+            fecha_hora=data["fecha_hora"],
+            capacidad_maxima=data["capacidad_maxima"],
+            imagen_url=data["imagen_url"],
+
+            organizador=User.objects.get(username= data["organizador"]),
+        )
+        return Response({"titulo": evento.titulo, "mensaje":
+            "Producto creado exitosamente"})
+
+        return Response ({"error": "El evento ya existe" })
+
+
+class actualizar_evento(APIView):
+    permission_classes = [EsOrganizador]
+    def put(self, request, titulo):
+        data = request.data
         evento = Event.objects.select_related("organizador").get(titulo=titulo)
 
         evento.descripcion = data.get("descripcion", evento.descripcion)
@@ -58,58 +138,72 @@ def actualizar_evento(request, titulo):
         evento.imagen_url = data.get("imagen_url", evento.imagen_url)
         evento.organizador = User.objects.get(username=data["organizador"])
         evento.save()
-        return JsonResponse({"mensaje": "Producto actualizado"})
+        return Response({"mensaje": "Producto actualizado"})
+
+    def patch(self, request, titulo):
+        data = request.data
+        evento = Event.objects.select_related("organizador").get(titulo=titulo)
+
+        evento.descripcion = data.get("descripcion", evento.descripcion)
+        evento.fecha_hora = data.get("fecha_hora", evento.fecha_hora)
+        evento.capacidad_maxima = data.get("capacidad_maxima", evento.capacidad_maxima)
+        evento.imagen_url = data.get("imagen_url", evento.imagen_url)
+        evento.organizador = User.objects.get(username=data["organizador"])
+        evento.save()
+        return Response({"mensaje": "Producto actualizado"})
 
 
-@csrf_exempt
-def eliminar_evento(request, titulo):
-    if request.method == "DELETE":
-        evento = Event.objects.get(titulo=titulo)
+
+class eliminar_evento(APIView):
+    permission_classes = [EsOrganizador]
+    def delete(self, request, id):
+        evento = Event.objects.get(id=id)
         evento.delete()
-        return JsonResponse({"mensaje": "Producto eliminado"})
+        return Response({"mensaje": "Producto eliminado"})
 
 
 # /**** RESERVAS ******/
 
-def listar_reservas(request, id):
-    usuario = User.objects.get(id=id)
-    reservas = Reserva.objects.select_related('evento', 'usuario').filter(usuario=usuario)
+class listar_reservas(APIView):
+    permission_classes = [IsAuthenticated]
 
-    data = [{
-            "id reserva": r.id,
-            "usuario": r.usuario.username,
-            "evento": r.evento.titulo,
-            "entradas": r.cantidad_entradas,
-            "estado": r.estado
-    } for r in reservas]
-    return JsonResponse(data, safe=False)
+    def get(self, request, id):
+        data = request.data
+        usuario = User.objects.get(id=id)
+        reservas = Reserva.objects.select_related('evento', 'usuario').filter(usuario=usuario)
 
-@csrf_exempt
-def crear_reservas(request):
+        data = [{
+                "id reserva": r.id,
+                "usuario": r.usuario.username,
+                "evento": r.evento.titulo,
+                "entradas": r.cantidad_entradas,
+                "estado": r.estado
+        } for r in reservas]
+        return Response(data)
 
-    if request.method == "POST":
-        data = json.loads(request.body)
+class crear_reservas(APIView):
+    permission_classes = [EsParticipante]
+
+    @swagger_auto_schema(
+        operation_description="Obtener lista de reservas",
+        responses={200: openapi.Response("Lista de reservas")},
+    )
+    def post(self, request):
+        data = request.data
 
         # Comprobar que los datos necesarios están presentes
         campos_requeridos = ["usuario", "evento", "cantidad_entradas",
                              "estado"]
         for campo in campos_requeridos:
             if campo not in data or not data[campo]:
-                return JsonResponse({"error": f"Falta el campo requerido: {campo}"})
+                return Response({"error": f"Falta el campo requerido: {campo}"})
 
         # Comprobar que el usuario_id es un entero
-        try:
-            usuario_id = int(data.get("usuario"))
-        except (ValueError, TypeError):
-            return JsonResponse({"error": "El usuario_id debe ser un número entero"})
 
-        # Comprobar que el usuario existe
-        if not User.objects.filter(id=usuario_id).exists():
-            return JsonResponse({"error": "El usuario no existe"})
 
         # Comprobar que el evento existe
-        if not Reserva.objects.filter(id=data.get("evento")).exists():
-            return JsonResponse({"error": "El evento no existe"})
+        if not Event.objects.filter(id=data.get("evento")).exists():
+            return Response({"error": "El evento no existe"})
 
         reserva = Reserva.objects.create(
             usuario=User.objects.get(id=data["usuario"]),
@@ -117,85 +211,95 @@ def crear_reservas(request):
             cantidad_entradas=data["cantidad_entradas"],
             estado=data["estado"]
         )
-        return JsonResponse({"id": reserva.id, "mensaje": "Reserva creado exitosamente"})
+        return Response({"id": reserva.id, "mensaje": "Reserva creado exitosamente"})
 
 
-@csrf_exempt
-def actualizar_estadoReservas(request, id):
-    if request.method in ["PUT", "PATCH"]:
-        data = json.loads(request.body)
+class actualizar_estadoReservas(APIView):
+    permission_classes = [EsOrganizador]
+    def put(self, request, id):
+        data = request.data
+        reserva = Reserva.objects.get(id=id)
+        reserva.estado = data.get("estado", reserva.estado)
+        reserva.save()
+        return Response({"mensaje": "Estado actualizado"})
+
+    def patch(self, request, id):
+        data = request.data
 
         reserva = Reserva.objects.get(id=id)
         reserva.estado = data.get("estado", reserva.estado)
         reserva.save()
-        return JsonResponse({"mensaje": "Estado actualizado"})
+        return Response({"mensaje": "Estado actualizado"})
 
 
-@csrf_exempt
-def eliminar_reservas(request, id):
-    if request.method == "DELETE":
+
+class eliminar_reservas(APIView):
+    permission_classes = [EsParticipante]
+    def delete(self, request, id):
+        data = request.data
         reserva = Reserva.objects.get(id=id)
         reserva.delete()
-        return JsonResponse({"mensaje": "Reserva eliminada"})
+        return Response({"mensaje": "Reserva eliminada"})
 
 
 # /****** COMENTARIOS ******/
 
-def listar_comentarios (request, id):
+class listar_comentarios(APIView):
+    def get(self, request, id):
 
     #ido = request.GET.get("ido")
     #print(ido)
 
     # Verificamos que el ID del usuario esté presente
-    if not id:
-        return JsonResponse({"error": "Se requiere el parámetro 'id' del usuario"})
+        if not id:
+            return Response({"error": "Se requiere el parámetro 'id' del usuario"})
 
-    usuario = User.objects.get(id=id)
-    comentario = Comentario.objects.select_related('evento').filter(usuario=usuario)
+        usuario = User.objects.get(id=id)
+        comentario = Comentario.objects.select_related('evento').filter(usuario=usuario)
 
-    data = [{
-        "id": c.id,
-        "usuario": c.usuario.username,
-        "evento": c.evento.titulo,
-        "texto": c.texto,
-        "fecha_creacion": c.fecha_creacion
-    } for c in comentario]
-    return JsonResponse(data, safe=False)
+        data = [{
+            "id": c.id,
+            "usuario": c.usuario.username,
+            "evento": c.evento.titulo,
+            "texto": c.texto,
+            "fecha_creacion": c.fecha_creacion
+        } for c in comentario]
+        return Response(data)
 
 
-@csrf_exempt
-def crear_comentario (request, id):
-    if request.method == "POST":
-            data = json.loads(request.body)
+class crear_comentario(APIView):
+    permission_classes = [IsAuthenticated]
 
-            # Verificamos que los datos estén presentes en el cuerpo de la solicitud
-            data = json.loads(request.body)
-            if "texto" not in data or "fecha_creacion" not in data or "evento" not in data:
-                return JsonResponse({"error": "Faltan datos requeridos (texto, fecha_creacion, evento)"})
+    def post(self, request):
 
-            # Comprobamos que el usuario existe
-            try:
-                Usuario = User.objects.get(id=id)
-            except User.DoesNotExist:
-                return JsonResponse({"error": "Usuario no encontrado"})
+        # Verificamos que los datos estén presentes en el cuerpo de la solicitud
+        data = request.data
+        if "texto" not in data or "fecha_creacion" not in data or "evento" not in data:
+            return Response({"error": "Faltan datos requeridos (texto, fecha_creacion, evento)"})
 
-            # Comprobamos que el evento existe
-            try:
-                Evento = Event.objects.get(id=data["evento"])
-            except Event.DoesNotExist:
-                return JsonResponse({"error": "Evento no encontrado"})
+        # Comprobamos que el usuario existe
+        try:
+            Usuario = User.objects.get(id=data["usuario"])
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"})
 
-            comentario = Comentario.objects.create(
-                texto=data["texto"],
-                fecha_creacion=data["fecha_creacion"],
-                usuario=Usuario,
-                evento=Evento,
-            )
+        # Comprobamos que el evento existe
+        try:
+            Evento = Event.objects.get(id=data["evento"])
+        except Event.DoesNotExist:
+            return Response({"error": "Evento no encontrado"})
 
-            return JsonResponse({
-                "id": comentario.id,
-                "mensaje": "Comentario creado exitosamente"
-            })
+        comentario = Comentario.objects.create(
+            texto=data["texto"],
+            fecha_creacion=data["fecha_creacion"],
+            usuario=Usuario,
+            evento=Evento,
+        )
+
+        return Response({
+            "id": comentario.id,
+            "mensaje": "Comentario creado exitosamente"
+        })
 
 
 #/****** USUARIOS **********/
@@ -206,19 +310,18 @@ def check_contraseña(stored_hash, input_password):
     return stored_hash == make_password(input_password)
 
 
-@csrf_exempt
-def registrar_usuario (request):
-    if request.method == "POST":
-        data = json.loads(request.body)
+class registrar_usuario(APIView):
+    def post(self, request):
+        data = request.data
         username = data.get("username")
         password = data.get("password")
 
         if not username or not password:
-            return JsonResponse({"error": "Faltan datos requeridos (username, password)"}, status=400)
+            return Response({"error": "Faltan datos requeridos (username, password)"}, status=400)
 
             # Verificar si el usuario ya existe
         if User.objects.filter(username=username).exists():
-            return JsonResponse({"error": "El nombre de usuario ya está registrado"}, status=400)
+            return Response({"error": "El nombre de usuario ya está registrado"}, status=400)
 
         #hashear la contraseña
         hashed_password = hash_contraseña(password)
@@ -228,28 +331,26 @@ def registrar_usuario (request):
             password = hashed_password
 
         )
-        return JsonResponse({"mensaje": "Usuario registrado exitosamente"})
+        return Response({"mensaje": "Usuario registrado exitosamente"})
 
 
-@csrf_exempt
-def login_usuario(request):
-    if request.method == "POST":
-        data = json.loads(request.body)
+class login_usuario(APIView):
+    def post(self, request):
+        data = request.data
         username = data["username"]
         password = data["password"]
 
         usuario=User.objects.get(username=username)
         if not username or not password:
-            return JsonResponse({"error": "Faltan datos requeridos (username, password)"}, status=400)
+            return Response({"error": "Faltan datos requeridos (username, password)"}, status=400)
 
         try:
             #user = User.objects.get(username=username)
             if check_password(password, usuario.password):#encoded="pbkdf2_sha256"):
-                return JsonResponse({"mensaje": "Login exitoso", "usuario": username})
+                return Response({"mensaje": "Login exitoso", "usuario": username})
             else:
-                return JsonResponse({"error": "Contraseña incorrecta"})
+                return Response({"error": "Contraseña incorrecta"})
 
         except User.DoesNotExist:
-            return JsonResponse({"error": "Usuario no encontrado"})
+            return Response({"error": "Usuario no encontrado"})
 
-    return JsonResponse({"error": "Método no permitido"})

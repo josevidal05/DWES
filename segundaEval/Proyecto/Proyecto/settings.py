@@ -31,7 +31,18 @@ ALLOWED_HOSTS = []
 # Application definition
 AUTH_USER_MODEL = 'Aplicacion.User'
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+}
+
+
 INSTALLED_APPS = [
+    'corsheaders',
+    'rest_framework',
+    'rest_framework.authtoken',
+    'drf_yasg',
     'Aplicacion.apps.AplicacionConfig',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -42,6 +53,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -51,6 +63,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:8000',
+]
 ROOT_URLCONF = 'Proyecto.urls'
 
 TEMPLATES = [
